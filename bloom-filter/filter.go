@@ -3,9 +3,11 @@ package bloom_filter
 import (
 	"crypto/rand"
 	"errors"
-	"github.com/cespare/xxhash/v2"
+	"lib/bitmap"
 	"math"
 	"sync"
+
+	"github.com/cespare/xxhash/v2"
 )
 
 const (
@@ -18,7 +20,7 @@ type BloomFilter struct {
 	k         uint64 // кол-во хешей
 	blockSize uint64 //размер массива
 	salt      []byte
-	bitSet    []bitmap
+	bitSet    []bitmap.Bitmap
 	mu        *sync.Mutex
 	hash      *xxhash.Digest
 	// options
@@ -60,7 +62,7 @@ func New(n uint64, opts ...Option) (*BloomFilter, error) {
 	bf.k = k
 	bf.blockSize = size
 	bf.salt = generateSalt(int(k))
-	bf.bitSet = make([]bitmap, int(size))
+	bf.bitSet = make([]bitmap.Bitmap, int(size))
 
 	return bf, nil
 }
