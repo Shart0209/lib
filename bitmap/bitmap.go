@@ -5,7 +5,7 @@ import (
 	"math/bits"
 )
 
-type Bitmap interface {
+type IBitmap interface {
 	Toggle(bit uint64)
 	Set(bit uint64)
 	Check(bit uint64) bool
@@ -15,47 +15,46 @@ type Bitmap interface {
 	String() string
 }
 
-type bitmap struct {
-	bm uint64
+type Bitmap uint64
+
+func New() IBitmap {
+	var bitmap Bitmap
+	return &bitmap
 }
 
-func New() Bitmap {
-	return &bitmap{}
+func (b *Bitmap) Toggle(bit uint64) {
+	*b ^= 1 << bit
 }
 
-func (b *bitmap) Toggle(bit uint64) {
-	b.bm ^= 1 << bit
+func (b *Bitmap) Set(bit uint64) {
+	*b |= 1 << bit
 }
 
-func (b *bitmap) Set(bit uint64) {
-	b.bm |= 1 << bit
+func (b *Bitmap) Check(bit uint64) bool {
+	return (*b & (1 << bit)) > 0
 }
 
-func (b *bitmap) Check(bit uint64) bool {
-	return (b.bm & (1 << bit)) > 0
+func (b *Bitmap) ClearAll() {
+	*b &^= 1<<64 - 1
 }
 
-func (b *bitmap) ClearAll() {
-	b.bm &^= 1<<64 - 1
+func (b *Bitmap) Clear(bit uint64) {
+	*b &^= Bitmap(bit)
 }
 
-func (b *bitmap) Clear(bit uint64) {
-	b.bm &^= bit
+func (b *Bitmap) String() string {
+	return fmt.Sprintf("%064b: %d", *b, *b)
 }
 
-func (b *bitmap) String() string {
-	return fmt.Sprintf("%064b", b.bm)
+func (b *Bitmap) Indexes() []int {
+	return indexes(*b)
 }
 
-func (b *bitmap) Indexes() []int {
-	return indexes(b.bm)
-}
-
-func indexes(bit uint64) []int {
-	var ind = make([]int, bits.OnesCount64(bit))
+func indexes(bit Bitmap) []int {
+	var ind = make([]int, bits.OnesCount64(uint64(bit)))
 	pos := 0
 	for bit != 0 {
-		ind[pos] = bits.TrailingZeros64(bit)
+		ind[pos] = bits.TrailingZeros64(uint64(bit))
 		bit &= bit - 1
 		pos += 1
 	}
