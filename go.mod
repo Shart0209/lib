@@ -1,4 +1,4 @@
-module lib
+module github.com/shart0209/lib
 
 go 1.25.4
 

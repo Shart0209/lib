@@ -3,9 +3,10 @@ package bloom_filter
 import (
 	"crypto/rand"
 	"errors"
-	"lib/bitmap"
 	"math"
 	"sync"
+
+	"github.com/shart0209/lib/bitmap"
 
 	"github.com/cespare/xxhash/v2"
 )
