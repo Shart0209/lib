@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"math"
+	"strings"
 	"sync"
 
 	"github.com/shart0209/lib/bitmap"
@@ -16,7 +17,7 @@ const (
 	defaultHash uint64 = 3
 )
 
-type BloomFilter struct {
+type Service struct {
 	m         uint64 // кол-во элементов
 	k         uint64 // кол-во хешей
 	blockSize uint64 //размер массива
@@ -24,20 +25,15 @@ type BloomFilter struct {
 	bitSet    []bitmap.Bitmap
 	mu        *sync.Mutex
 	hash      *xxhash.Digest
-	// options
-	fpRate        float64
-	enableOptimal bool
+	fpRate    float64
 }
 
-// New n - число элементов
-func New(n uint64, opts ...Option) (*BloomFilter, error) {
-	var m, k, size uint64
-
-	if n == 0 {
-		return nil, errors.New("n element must be greater than 0")
+func New(elemCount uint64, opts ...Option) (*Service, error) {
+	if elemCount == 0 {
+		return nil, errors.New("element must be greater than 0")
 	}
 
-	bf := &BloomFilter{
+	bf := &Service{
 		hash: xxhash.New(),
 		mu:   &sync.Mutex{},
 	}
@@ -46,45 +42,39 @@ func New(n uint64, opts ...Option) (*BloomFilter, error) {
 		opt(bf)
 	}
 
-	m, k = n, defaultHash
-	if size = uint64(math.Ceil(float64(n) / float64(blockElem))); size <= 1 {
-		k = 1
+	if bf.fpRate > 0 {
+		bf.m, bf.k = getOptimalParams(elemCount, bf.fpRate)
+	} else {
+		bf.m, bf.k = elemCount, defaultHash
 	}
 
-	if bf.enableOptimal {
-		m, k = getOptimalParams(n, bf.fpRate)
-
-		if size = uint64(math.Ceil(float64(m) / float64(blockElem))); size <= 1 {
-			k = 1
-		}
+	if bf.blockSize = uint64(math.Ceil(float64(bf.m) / float64(blockElem))); bf.blockSize <= 1 {
+		bf.k = 1
 	}
 
-	bf.m = m
-	bf.k = k
-	bf.blockSize = size
-	bf.salt = generateSalt(int(k))
-	bf.bitSet = make([]bitmap.Bitmap, int(size))
+	bf.salt = generateSalt(int(bf.k))
+	bf.bitSet = make([]bitmap.Bitmap, int(bf.blockSize))
 
 	return bf, nil
 }
 
-func (b *BloomFilter) Add(value []byte) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+func (s *Service) Add(value []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	for _, salt := range b.salt {
-		hash := b.hashData(value, salt)
-		b.bitSet[int(hash%b.blockSize)].Set(hash % blockElem)
+	for _, salt := range s.salt {
+		hash := s.hashData(value, salt)
+		s.bitSet[int(hash%s.blockSize)].Set(hash % blockElem)
 	}
 }
 
-func (b *BloomFilter) Check(value []byte) bool {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+func (s *Service) Check(value []byte) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	for _, salt := range b.salt {
-		hash := b.hashData(value, salt)
-		if !b.bitSet[int(hash%b.blockSize)].Check(hash % blockElem) {
+	for _, salt := range s.salt {
+		hash := s.hashData(value, salt)
+		if !s.bitSet[int(hash%s.blockSize)].Check(hash % blockElem) {
 			return false
 		}
 	}
@@ -92,11 +82,41 @@ func (b *BloomFilter) Check(value []byte) bool {
 	return true
 }
 
-func (b *BloomFilter) hashData(value []byte, salt byte) uint64 {
-	b.hash.ResetWithSeed(uint64(salt))
-	b.hash.Write(value)
+func (s *Service) Clear(value []byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	return b.hash.Sum64()
+	for _, salt := range s.salt {
+		hash := s.hashData(value, salt)
+		s.bitSet[int(hash%s.blockSize)].Clear(hash % blockElem)
+	}
+}
+
+func (s *Service) ClearAll() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.bitSet = make([]bitmap.Bitmap, int(s.blockSize))
+}
+
+func (s *Service) String(value []byte) string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	res := make([]string, 0)
+	for _, salt := range s.salt {
+		hash := s.hashData(value, salt)
+		res = append(res, s.bitSet[int(hash%s.blockSize)].String())
+	}
+
+	return strings.Join(res, "; ")
+}
+
+func (s *Service) hashData(value []byte, salt byte) uint64 {
+	s.hash.ResetWithSeed(uint64(salt))
+	s.hash.Write(value)
+
+	return s.hash.Sum64()
 }
 
 func generateSalt(size int) []byte {
@@ -107,7 +127,7 @@ func generateSalt(size int) []byte {
 }
 
 // getOptimalParams
-// возвращает m - Количество битов в наборе битов; k - Количество используемых хеш-функций
+// возвращает m - Количество битов в наборе битов; k - Количество используемых хеш
 func getOptimalParams(n uint64, p float64) (m, k uint64) {
 	if m = uint64(math.Ceil(-1 * float64(n) * math.Log(p) / math.Pow(math.Log(2), 2))); m == 0 {
 		m = 1

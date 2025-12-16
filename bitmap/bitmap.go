@@ -39,11 +39,11 @@ func (b *Bitmap) ClearAll() {
 }
 
 func (b *Bitmap) Clear(bit uint64) {
-	*b &^= Bitmap(bit)
+	*b &^= 1 << bit
 }
 
 func (b *Bitmap) String() string {
-	return fmt.Sprintf("%064b: %d", *b, *b)
+	return fmt.Sprintf("%b: %d", *b, *b)
 }
 
 func (b *Bitmap) Indexes() []int {
