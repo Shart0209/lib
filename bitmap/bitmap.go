@@ -10,6 +10,7 @@ type IBitmap interface {
 	Set(bit uint64)
 	Check(bit uint64) bool
 	Clear(bit uint64)
+	Encode(items []uint64) uint64
 	ClearAll()
 	Indexes() []int
 	String() string
@@ -24,6 +25,15 @@ func New() IBitmap {
 
 func (b *Bitmap) Toggle(bit uint64) {
 	*b ^= 1 << bit
+}
+
+func (b *Bitmap) Encode(items []uint64) uint64 {
+	var res uint64
+	for _, v := range items {
+		res |= v
+	}
+
+	return res
 }
 
 func (b *Bitmap) Set(bit uint64) {
