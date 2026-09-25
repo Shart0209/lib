@@ -8,6 +8,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const packageName = "postgres"
+
 func New(ctx context.Context, cfg *Config, ops ...OptionFunc) (PgPooler, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required")
@@ -76,9 +78,14 @@ func (p *pgPool) createPool(ctx context.Context, cfg *Config) (*pgConnect, error
 	return &pgConnect{conn: conn}, nil
 }
 
-func (p *pgPool) Close() {
+func (p *pgPool) Close(_ context.Context) error {
 	p.master.conn.Close()
 	p.sync.conn.Close()
+	return nil
+}
+
+func (p *pgPool) Name() string {
+	return packageName
 }
 
 func (p *pgPool) Master() Connector {

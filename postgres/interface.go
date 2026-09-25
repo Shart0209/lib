@@ -10,7 +10,8 @@ import (
 type PgPooler interface {
 	Master() Connector
 	Sync() Connector
-	Close()
+	Close(ctx context.Context) error
+	Name() string
 }
 
 type Connector interface {
